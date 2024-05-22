@@ -1,4 +1,4 @@
-#include "RG15.hpp"
+#include "RG15.h"
 #include "senseBoxIO.h"
 
 RG15 rg15(Serial1);

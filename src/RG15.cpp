@@ -8,6 +8,8 @@
  * @date 2024-05-22
  */
 
+
+//________________________________________Begin constructor____________________________________________________
 RG15::RG15(HardwareSerial &serial, int baud) : serial(serial), _baud(baud)
 {
     this->_dataIn = "";
@@ -21,10 +23,8 @@ RG15::RG15(HardwareSerial &serial, int baud) : serial(serial), _baud(baud)
 
 RG15::RG15(HardwareSerial &serial) : RG15(serial, 9600) {}
 
-/**
- * @brief Clear the data in buffer
- *
- */
+//________________________________________Begin private member functions____________________________________________________
+
 void RG15::_clearDataIn()
 {
     this->_dataIn = "";
@@ -121,10 +121,45 @@ bool RG15::_checkSensorReady()
     return true;
 }
 
-bool RG15::begin(bool polling, bool isMetric)
+bool RG15::_setHighResolution()
+{
+    this->serial.println("H");
+    if (!this->_readSensorResponse())
+    {
+        return false;
+    }
+    if (this->_dataIn.find(std::string("h")) == std::string::npos)
+    {
+        return false;
+    }
+    else
+    {
+        return true;
+    }
+}
+
+bool RG15::_setLowResolution()
+{
+    this->serial.println("L");
+    if (!this->_readSensorResponse())
+    {
+        return false;
+    }
+    if (this->_dataIn.find(std::string("l")) == std::string::npos)
+    {
+        return false;
+    }
+    else
+    {
+        return true;
+    }
+}
+
+//________________________________________Begin public member functions____________________________________________________
+
+bool RG15::begin(bool polling, bool isMetric, bool isHighRes)
 {
     this->serial.begin(this->_baud);
-    this->_clearDataIn();
     if (!this->_checkSensorReady())
     {
         if (!this->reboot())
@@ -133,13 +168,11 @@ bool RG15::begin(bool polling, bool isMetric)
             return false;
         }
     }
-    this->_clearDataIn();
     if (!this->_setUnit(isMetric))
     {
         this->_initErr = 2;
         return false;
     }
-    this->_clearDataIn();
     if (polling)
     {
         if (!this->_setPolling())
@@ -150,6 +183,22 @@ bool RG15::begin(bool polling, bool isMetric)
         else
         {
             this->_polling = true;
+        }
+    }
+    if (isHighRes)
+    {
+        if (!this->_setHighResolution())
+        {
+            this->_initErr = 4;
+            return false;
+        }
+    }
+    else
+    {
+        if (!this->_setLowResolution())
+        {
+            this->_initErr = 4;
+            return false;
         }
     }
     this->_initErr = 0;
@@ -181,6 +230,11 @@ bool RG15::begin()
     else
     {
         this->_polling = true;
+    }
+    if (!this->_setHighResolution())
+    {
+        this->_initErr = 4;
+        return false;
     }
     return true;
 }

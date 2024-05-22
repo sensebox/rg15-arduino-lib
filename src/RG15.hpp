@@ -23,6 +23,18 @@ private:
     float _rInt;     // rainfall intensity
 
     /**
+     * @brief Set high resolution 
+     * 
+     */
+    bool _setHighResolution();
+
+    /**
+     * @brief Set low resolution
+     * 
+     */
+    bool _setLowResolution();
+
+    /**
      * @brief Set the unit of the sensor
      *
      * @param isMetric true for metric, false for imperial
@@ -61,7 +73,7 @@ private:
      */
     void _clearDataIn();
 
-    int _initErr; //Variable to store the initialization error (0 = no error, 1 = reboot error, 2 = unit error, 3 = polling error, 4 = unknown error)
+    int _initErr; //Variable to store the initialization error (0 = no error, 1 = reboot error, 2 = unit error, 3 = polling error, 4 = resolution error)
 
 public:
     /**
@@ -84,13 +96,14 @@ public:
      *
      * @param polling true to enable polling, false otherwise
      * @param isMetric true for metric, false for imperial
+     * @param isHighRes true for high resolution, false for low resolution
      * @return true if the sensor was initialized successfully
      * @return false if not all commands were acknowledged by the sensor
      */
-    bool begin(bool polling, bool isMetric);
+    bool begin(bool polling, bool isMetric, bool isHighRes);
 
     /**
-     * @brief Initialize the sensor in polling mode and metric units
+     * @brief Initialize the sensor in polling mode, high resolution and metric units
      *
      * @return true if the sensor was initialized successfully
      * @return false if not all commands were acknowledged by the sensor
@@ -142,7 +155,7 @@ public:
     /**
      * @brief Get the Init Error
      *
-     * @return Init Error code as int (0 = no error, 1 = reboot error, 2 = unit error, 3 = polling error, 4 = unknown error)
+     * @return Init Error code as int (0 = no error, 1 = reboot error, 2 = unit error, 3 = polling error, 4 = resolution error)
      */
     int getInitErr();
 
