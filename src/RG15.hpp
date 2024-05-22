@@ -126,17 +126,51 @@ public:
      */
     bool reboot();
 
-
+    /**
+     * @brief Reset the total accumulated rainfall inside the sensor and update the totalAcc variable
+     *
+     */
     void resetTotalAcc();
+
+    /**
+     * @brief Get the dataIn buffer (for debugging purposes)
+     *
+     * @return std::string The dataIn buffer
+     */
     String getDataIn();
+
     /**
      * @brief Get the Init Error
      *
      * @return Init Error code as int (0 = no error, 1 = reboot error, 2 = unit error, 3 = polling error, 4 = unknown error)
      */
     int getInitErr();
+
+    /**
+     * @brief Get the accumulated rainfall since the last poll
+     *
+     * @return float The accumulated rainfall since the last poll
+     */
     float getAcc();
+
+    /**
+     * @brief Get the accumulated rainfall in the current event
+     *
+     * @return float The accumulated rainfall in the current event
+     */
     float getEventAcc();
+
+    /**
+     * @brief Get the total accumulated rainfall since the last reset
+     *
+     * @return float The total accumulated rainfall since the last reset
+     */
     float getTotalAcc();
+
+    /**
+     * @brief Get the rainfall intensity
+     *
+     * @return float The rainfall intensity
+     */
     float getRInt();
 };

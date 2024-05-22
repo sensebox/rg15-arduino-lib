@@ -101,6 +101,26 @@ bool RG15::_setPolling()
     }
 }
 
+bool RG15::_checkSensorReady()
+{
+    if (!this->_readSensorResponse())
+    {
+        return false;
+    }
+    if (this->_dataIn.find(std::string("RG-15")) == std::string::npos)
+    {
+        if (this->_dataIn.find(std::string("Reset")) == std::string::npos)
+        {
+            return false;
+        }
+        else
+        {
+            return true;
+        }
+    }
+    return true;
+}
+
 bool RG15::begin(bool polling, bool isMetric)
 {
     this->serial.begin(this->_baud);
@@ -214,26 +234,6 @@ void RG15::resetTotalAcc()
     this->_clearDataIn();
 }
 
-bool RG15::_checkSensorReady()
-{
-    if (!this->_readSensorResponse())
-    {
-        return false;
-    }
-    if (this->_dataIn.find(std::string("RG-15")) == std::string::npos)
-    {
-        if (this->_dataIn.find(std::string("Reset")) == std::string::npos)
-        {
-            return false;
-        }
-        else
-        {
-            return true;
-        }
-    }
-    return true;
-}
-
 bool RG15::reboot()
 {
     this->serial.println("K");
@@ -257,6 +257,12 @@ bool RG15::reboot()
         return true;
     }
 }
+void RG15::resetTotalAcc(){
+    this->serial.println("O");
+    this->_readSensorResponse();
+    this->doPoll();
+}
+
 String RG15::getDataIn()
 {
     return this->_dataIn.c_str();
@@ -265,4 +271,24 @@ String RG15::getDataIn()
 int RG15::getInitErr()
 {
     return this->_initErr;
+}
+
+float RG15::getAcc()
+{
+    return this->_acc;
+}
+
+float RG15::getEventAcc()
+{
+    return this->_eventAcc;
+}
+
+float RG15::getTotalAcc()
+{
+    return this->_totalAcc;
+}
+
+float RG15::getRInt()
+{
+    return this->_rInt;
 }
