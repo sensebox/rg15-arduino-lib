@@ -4,8 +4,8 @@
 /**
  * @brief Arduino library for the RG15 rain gauge sensor, written in C++
  * @author Paul Reichmuth (@PaulReichmuth)
- * @version 0.0.1
- * @date 2024-04-24
+ * @version 0.0.2
+ * @date 2024-05-22
  */
 
 RG15::RG15(HardwareSerial &serial, int baud) : serial(serial), _baud(baud)
@@ -205,33 +205,15 @@ bool RG15::doPoll()
 
 bool RG15::doPoll(float *acc, float *eventAcc, float *totalAcc, float *rInt)
 {
-    this->_clearDataIn();
-    if (this->_polling)
+    if(this->doPoll())
     {
-        this->serial.println("R");
-        if (!this->_readSensorResponse())
-        {
-            return false;
-        }
-        *acc = std::stof(this->_dataIn.substr(this->_dataIn.find(std::string("Acc")) + 5, 4));
-        *eventAcc = std::stof(this->_dataIn.substr(this->_dataIn.find(std::string("EventAcc")) + 10, 4));
-        *totalAcc = std::stof(this->_dataIn.substr(this->_dataIn.find(std::string("TotalAcc")) + 10, 4));
-        *rInt = std::stof(this->_dataIn.substr(this->_dataIn.find(std::string("RInt")) + 6, 4));
-
+        *acc = this->_acc;
+        *eventAcc = this->_eventAcc;
+        *totalAcc = this->_totalAcc;
+        *rInt = this->_rInt;
         return true;
     }
     return false;
-}
-
-void RG15::resetTotalAcc()
-{
-    this->serial.println("O");
-    while (this->serial.available())
-    {
-        this->_dataIn += std::string(serial.readString().c_str());
-    }
-    this->_totalAcc = 0;
-    this->_clearDataIn();
 }
 
 bool RG15::reboot()
@@ -257,6 +239,7 @@ bool RG15::reboot()
         return true;
     }
 }
+
 void RG15::resetTotalAcc(){
     this->serial.println("O");
     this->_readSensorResponse();
