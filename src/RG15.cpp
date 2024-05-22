@@ -8,12 +8,6 @@
  * @date 2024-04-24
  */
 
-/**
- * @brief Construct a new instance of a RG15 sensor
- *
- * @param serial The serial port to use (usually Serial1 or Serial2)
- * @param baud The baud rate of the sensor (default is 9600)
- */
 RG15::RG15(HardwareSerial &serial, int baud) : serial(serial), _baud(baud)
 {
     this->_dataIn = "";
@@ -25,15 +19,7 @@ RG15::RG15(HardwareSerial &serial, int baud) : serial(serial), _baud(baud)
     this->_initErr = 0;
 }
 
-/**
- * @brief Construct a new instance of a RG15 sensor with default baud rate of 9600
- *
- * @param serial The serial port to use (usually Serial1 or Serial2)
- */
-
 RG15::RG15(HardwareSerial &serial) : RG15(serial, 9600) {}
-
-RG15::~RG15() = default;
 
 /**
  * @brief Clear the data in buffer
@@ -42,28 +28,34 @@ RG15::~RG15() = default;
 void RG15::_clearDataIn()
 {
     this->_dataIn = "";
-    this->serial.flush();
 }
 
-void RG15::_waitForSensorReady()
+bool RG15::_readSensorResponse()
 {
-    delay(2000); // sensor needs a little time between commands for some reason, we can't just spam it. 2 seconds seems to be a good value (might change in the future)
+    this->_clearDataIn(); // make sure the buffer is empty so we don't confuse old data with new data
+    unsigned long start = millis();
+    while (this->_dataIn.empty())
+    {
+        while (this->serial.available())
+        {
+            this->_dataIn += std::string(this->serial.readString().c_str());
+        }
+        if (millis() - start > 10000)
+        {
+            return false; // if no response is received after 10 seconds, we assume the sensor is gone
+        }
+    }
+    return true;
 }
-/**
- * @brief Set the unit of the sensor
- *
- * @param isMetric true for metric, false for imperial
- * @return true if the unit was set and acknowledged by the sensor
- * @return false if the sensor did not acknowledge the unit change
- */
+
 bool RG15::_setUnit(bool isMetric)
 {
     if (isMetric)
     {
         this->serial.println("M");
-        while (this->serial.available())
+        if (!this->_readSensorResponse())
         {
-            this->_dataIn += std::string(serial.readString().c_str());
+            return false;
         }
         if (this->_dataIn.find(std::string("m")) == std::string::npos)
         {
@@ -77,9 +69,9 @@ bool RG15::_setUnit(bool isMetric)
     else
     {
         this->serial.println("I");
-        while (this->serial.available())
+        if (!this->_readSensorResponse())
         {
-            this->_dataIn += std::string(serial.readString().c_str());
+            return false;
         }
         if (this->_dataIn.find(std::string("i")) == std::string::npos)
         {
@@ -92,18 +84,12 @@ bool RG15::_setUnit(bool isMetric)
     }
 }
 
-/**
- * @brief Set the sensor to polling mode
- *
- * @return true if the polling mode was set and acknowledged by the sensor
- * @return false if the sensor did not acknowledge the polling mode
- */
 bool RG15::_setPolling()
 {
     this->serial.println("P");
-    while (this->serial.available())
+    if (!this->_readSensorResponse())
     {
-        this->_dataIn += std::string(serial.readString().c_str());
+        return false;
     }
     if (this->_dataIn.find(std::string("p")) == std::string::npos)
     {
@@ -115,22 +101,17 @@ bool RG15::_setPolling()
     }
 }
 
-/**
- * @brief Initialize the sensor
- *
- * @param polling true to enable polling, false otherwise
- * @param isMetric true for metric, false for imperial
- * @return true if the sensor was initialized successfully
- * @return false if not all commands were acknowledged by the sensor
- */
 bool RG15::begin(bool polling, bool isMetric)
 {
     this->serial.begin(this->_baud);
     this->_clearDataIn();
-    if (!this->reboot())
+    if (!this->_checkSensorReady())
     {
-        this->_initErr = 1;
-        return false;
+        if (!this->reboot())
+        {
+            this->_initErr = 1;
+            return false;
+        }
     }
     this->_clearDataIn();
     if (!this->_setUnit(isMetric))
@@ -155,31 +136,23 @@ bool RG15::begin(bool polling, bool isMetric)
     return true;
 }
 
-/**
- * @brief Initialize the sensor in polling mode and metric units
- *
- * @return true if the sensor was initialized successfully
- * @return false if not all commands were acknowledged by the sensor
- */
 bool RG15::begin()
 {
     this->serial.begin(this->_baud);
     this->_clearDataIn();
-    if (!this->reboot())
+    if (!this->_checkSensorReady())
     {
-        this->_initErr = 1;
-        return false;
+        if (!this->reboot())
+        {
+            this->_initErr = 1;
+            return false;
+        }
     }
-    this->_clearDataIn();
-    this->_waitForSensorReady();
     if (!this->_setUnit(true))
     {
         this->_initErr = 2;
         return false;
     }
-    this->_clearDataIn();
-    this->_waitForSensorReady();
-
     if (!this->_setPolling())
     {
         this->_initErr = 3;
@@ -192,62 +165,38 @@ bool RG15::begin()
     return true;
 }
 
-/**
- * @brief Get all rain gauge data in polling mode and store it in the sensor object
- *
- * @return true if the data was successfully retrieved
- * @return false if no data was recieved or polling mode was not set
- */
 bool RG15::doPoll()
 {
-    this->_clearDataIn();
     if (this->_polling)
     {
         this->serial.println("R");
-        while (this->serial.available())
+        if (!this->_readSensorResponse())
         {
-            this->_dataIn += std::string(serial.readString().c_str());
+            return false;
         }
-        this->_acc = std::stof(this->_dataIn.substr(this->_dataIn.find_first_of("Acc") + 5, 4));
-        this->_eventAcc = std::stof(this->_dataIn.substr(this->_dataIn.find_first_of("EventAcc") + 10, 4));
-        this->_totalAcc = std::stof(this->_dataIn.substr(this->_dataIn.find_first_of("TotalAcc") + 10, 4));
-        this->_rInt = std::stof(this->_dataIn.substr(this->_dataIn.find_first_of("RInt") + 6, 4));
+        this->_acc = std::stof(this->_dataIn.substr(this->_dataIn.find(std::string("Acc")) + 5, 4));
+        this->_eventAcc = std::stof(this->_dataIn.substr(this->_dataIn.find(std::string("EventAcc")) + 10, 4));
+        this->_totalAcc = std::stof(this->_dataIn.substr(this->_dataIn.find(std::string("TotalAcc")) + 10, 4));
+        this->_rInt = std::stof(this->_dataIn.substr(this->_dataIn.find(std::string("RInt")) + 6, 4));
         return true;
     }
     return false;
 }
 
-/**
- * @brief Get all rain gauge data in polling mode and store it in the given references, does not update getAcc(), getEventAcc(), getTotalAcc(), getRInt()!
- *
- * @param acc Pointer to a variable containing the accumulated rainfall since the last reset
- * @param eventAcc Pointer to a variable containing the accumulated rainfall since the last event
- * @param totalAcc Pointer to a variable containing the total accumulated rainfall
- * @param rInt Pointer to a variable containing the rainfall intensity
- *
- * @return true if the data was successfully retrieved
- * @return false if no data was recieved or polling mode was not set
- */
 bool RG15::doPoll(float *acc, float *eventAcc, float *totalAcc, float *rInt)
 {
     this->_clearDataIn();
     if (this->_polling)
     {
         this->serial.println("R");
-        unsigned long start = millis();
-        while (this->serial.available())
+        if (!this->_readSensorResponse())
         {
-            this->_dataIn += std::string(serial.readString().c_str());
-
-            if (millis() - start > 1000)
-            {
-                return false;
-            }
+            return false;
         }
-        *acc = std::stof(this->_dataIn.substr(this->_dataIn.find_first_of("Acc") + 5, 4));
-        *eventAcc = std::stof(this->_dataIn.substr(this->_dataIn.find_first_of("EventAcc") + 10, 4));
-        *totalAcc = std::stof(this->_dataIn.substr(this->_dataIn.find_first_of("TotalAcc") + 10, 4));
-        *rInt = std::stof(this->_dataIn.substr(this->_dataIn.find_first_of("RInt") + 6, 4));
+        *acc = std::stof(this->_dataIn.substr(this->_dataIn.find(std::string("Acc")) + 5, 4));
+        *eventAcc = std::stof(this->_dataIn.substr(this->_dataIn.find(std::string("EventAcc")) + 10, 4));
+        *totalAcc = std::stof(this->_dataIn.substr(this->_dataIn.find(std::string("TotalAcc")) + 10, 4));
+        *rInt = std::stof(this->_dataIn.substr(this->_dataIn.find(std::string("RInt")) + 6, 4));
 
         return true;
     }
@@ -265,22 +214,43 @@ void RG15::resetTotalAcc()
     this->_clearDataIn();
 }
 
-/**
- * @brief Reboot the sensor via the "K" command and check if the sensor rebooted successfully
- *
- * @return true if sensor rebooted successfully
- * @return false if sensor did not respond to the reboot command
- */
-bool RG15::reboot()
+bool RG15::_checkSensorReady()
 {
-    this->serial.println("K");
-    while (this->serial.available())
+    if (!this->_readSensorResponse())
     {
-        this->_dataIn += std::string(serial.readString().c_str());
+        return false;
     }
     if (this->_dataIn.find(std::string("RG-15")) == std::string::npos)
     {
+        if (this->_dataIn.find(std::string("Reset")) == std::string::npos)
+        {
+            return false;
+        }
+        else
+        {
+            return true;
+        }
+    }
+    return true;
+}
+
+bool RG15::reboot()
+{
+    this->serial.println("K");
+    if (!this->_readSensorResponse())
+    {
         return false;
+    }
+    if (this->_dataIn.find(std::string("RG-15")) == std::string::npos)
+    {
+        if (this->_dataIn.find(std::string("Reset")) == std::string::npos)
+        {
+            return false;
+        }
+        else
+        {
+            return true;
+        }
     }
     else
     {

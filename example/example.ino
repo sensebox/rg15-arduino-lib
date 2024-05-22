@@ -30,13 +30,15 @@ void setup()
 
 void loop()
 {     
-    if(!rg15.doPoll())
-    {
-        Serial.println("Polling failed");
-    }
-    else{
-    Serial.print("Polling successful");
-    }
-    delay(1000);
-    Serial.println("New Loop");
+    float acc, evAcc, totAcc, rInt;
+    Serial.println("Polling RG15 sensor");
+    rg15.doPoll(&acc, &evAcc, &totAcc, &rInt);
+    Serial.print("Accumulated rainfall: ");
+    Serial.println(acc);
+    Serial.print("Event accumulated rainfall: ");
+    Serial.println(evAcc);
+    Serial.print("Total accumulated rainfall: ");
+    Serial.println(totAcc);
+    Serial.print("Rain intensity: ");
+    Serial.println(rInt);
 }
