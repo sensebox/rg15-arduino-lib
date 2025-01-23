@@ -12,167 +12,259 @@
  * https://rainsensors.com/wp-content/uploads/sites/3/2020/07/rg-15_instructions_sw_1.000.pdf#page=2
  */
 
-// send lower case command letter
-bool RG15Arduino::_sendCommandLetter(char a) {
-  // check for existence of serial
-  if (serial == nullptr) {
-    return false;
+/**
+ * private functions for robust serial communication to change sensor settings
+ */
+bool RG15::changeSettings(char setting) {
+  if (cleanSerialStream())
+    if (sendChar(setting))
+      if (collectResponse())
+        if (checkCharResponse(setting)) return true;  // success
+  return false;                                       // fail
+}
+
+bool RG15::cleanSerialStream() {
+  if (serial != nullptr) {
+    while (serial->available()) serial->read();  // clean serial stream
+    return true;                                 // success
   }
+  latestErrorCode = 1;  // serial does not exist
+  return false;         // fail
+}
 
-  // send command
-  if (serial->write(a) == 1 && serial->write('\n') == 1) {
-    // TODO delay?
-    String response = serial->readStringUntil('\n');
+bool RG15::sendChar(char charCommand) {
+  if (serial->write(charCommand) == 1)
+    if (serial->write('\n') == 1) return true;  // success
+  latestErrorCode = 2;                          // serial could not write
+  return false;                                 // fail
+}
 
-    // check response
-    if (response.length() > 0) {
-      return response.charAt(0) == a;
+bool RG15::collectResponse() {
+  long sendTime = millis();
+  int index = 0;
+  while (millis() - sendTime < timeout) {
+    if (serial->available()) {
+      responseBuffer[index] = serial->read();
+
+      // check fr line break
+      if (responseBuffer[index++] == '\n') {
+        responseBuffer[index] = '\0';  // null termination
+        return true;                   // success
+      }
+
+      // check for size limit of response buffer
+      if (index == sizeof(responseBuffer) - 1) {  // to long
+        responseBuffer[index] = '\0';  // null termination for good measure
+        latestErrorCode = 3;           // response is invalid
+        return false;                  // fail
+      }
     }
   }
-  return false;  // failure because of unexpected response
+  latestErrorCode = 4;  // response timed out
+  return false;         // fail
 }
 
-// constructors
-RG15::RG15(HardwareSerial &serial, int baud) : serial(serial), _baud(baud) {
-  this->_acc = 0;
-  this->_eventAcc = 0;
-  this->_totalAcc = 0;
-  this->_rInt = 0;
+bool RG15::checkCharResponse(char expectedChar) {
+  if (strlen(responseBuffer) > 0)
+    if (responseBuffer[0] == expectedChar) return true;  // success
+  latestErrorCode = 3;                                   // response is invalid
+  return false;                                          // fail
 }
-RG15::RG15(HardwareSerial &serial) : RG15(serial, 9600) {}
 
-bool RG15::_readSensorResponse() {
-  this->_clearDataIn();  // make sure the buffer is empty so we don't confuse
-                         // old data with new data
-  unsigned long start = millis();
-  while (this->_dataIn.empty()) {
-    while (this->serial.available()) {
-      this->_dataIn += std::string(this->serial.readString().c_str());
+/**
+ * additional private functions for robust serial communication
+ */
+bool RG15::checkResponse(char* expectedResponse) {
+  // check size
+  size_t expectedResponseSize = strlen(expectedResponse);
+  size_t responseSize = strlen(responseBuffer);
+  if (responseSize < expectedResponseSize) {
+    latestErrorCode = 3;  // response is invalid
+    return false;         // fail
+  }
+
+  // check single characters
+  for (size_t i = 0; i < expectedResponseSize; i++) {
+    if (responseBuffer[i] != expectedResponse[i]) {
+      latestErrorCode = 3;  // response is invalid
+      return false;         // fail
     }
-    if (millis() - start > 10000) {
-      return false;  // if no response is received after 10 seconds, we assume
-                     // the sensor is gone
-    }
   }
-  return true;
+  return true;  // success
 }
 
-bool RG15::_setPolling() {
-  this->serial.println("P");
-  if (!this->_readSensorResponse()) {
-    return false;
+bool RG15::isValidBaudRate(unsigned int baudRate) {
+  for (int baudCode = 0; baudCode < sizeof(baudeRateCodes); baudCode++)
+    if (baudeRateCodes[baudCode] == baudRate) return true;  // success
+  latestErrorCode = 5;  // baud rate is not supported
+  return false;         // fail
+}
+
+/**
+ * constructor
+ */
+RG15::RG15(HardwareSerial& serial) {
+  this->serial = &serial;
+  this->acc = 0;
+  this->eventAcc = 0;
+  this->totalAcc = 0;
+  this->rInt = 0;
+  this->latestErrorCode = 0;
+}
+
+/**
+ * begin
+ */
+bool RG15::begin(int baudRate, unsigned long timeout, unsigned int attampts,
+                 bool pollingMode, bool highResolution, bool metricUnit) {
+  this->timeout = timeout;
+  this->attempts = attempts;
+
+  // baude rate
+  if (!isValidBaudRate(baudRate)) return false;  // fail
+  if (!cleanSerialStream()) return false;        // fail
+  serial->begin(baudRate);
+
+  // sensor settings
+  bool success = true;
+  success &= (setPollingMode() ? pollingMode : setContinousMode());
+  success &= (setHighResolution() ? highResolution : setLowResolution());
+  success &= (setMetricUnit() ? metricUnit : setImperialUnit());
+  return success;
+}
+bool RG15::begin(unsigned int baudRate, unsigned long timeout,
+                 unsigned int attempts) {
+  begin(baudRate, timeout, attempts, true, true, true);
+}
+bool RG15::begin() { begin(9500, 1000, 5); }
+
+/**
+ * poll measurements
+ */
+bool RG15::poll() {
+  for (int attempt = 0; attempt < attempts; attempt++) {
+    if (cleanSerialStream())
+      if (sendChar('r'))
+        if (collectResponse()) {
+          char newUnit;
+          if (sscanf(responseBuffer,
+                     "Acc %f %c %*s EventAcc %f %*s TotalAcc %f %*s RInt %f",
+                     &acc, &newUnit, &eventAcc, &totalAcc, &rInt) != 5) {
+            latestErrorCode = 3;  // response is invalid
+            return false;         // fail
+          }
+          if (unit == newUnit) return true;  // success
+          latestErrorCode = 6;               // response unit does not match
+          return false;                      // fail
+        }
   }
-  if (this->_dataIn.find(std::string("p")) == std::string::npos) {
-    return false;
-  } else {
-    return true;
+  return false;  // fail
+}
+
+/**
+ * restart sensor
+ */
+bool RG15::restart() {
+  for (int attempt = 0; attempt < attempts; attempt++) {
+    if (cleanSerialStream())
+      if (sendChar('k'))
+        if (collectResponse())
+          if (checkResponse("Device Restart")) return true;  // success
+  }
+  return false;  // fail
+}
+
+/**
+ * change baud rate //TODO
+ */
+bool RG15::changeBaudeRate(unsigned int baudeRate) {
+  for (int attempt = 0; attempt < attempts; attempt++) {
+    if (!cleanSerialStream()) return false;  // fail
+
+    if (serial->write('B') == 1)
+      if (serial->write('\n') == 1) return true;  // success
+    latestErrorCode = 2;                          // serial could not write
+    return false;                                 // fail
+
+    if (collectResponse())
+      if (checkResponse("Device Restart")) return true;  // success
+    return false;                                        // fail
   }
 }
 
-bool RG15::_checkSensorReady() {
-  if (!this->_readSensorResponse()) {
-    return false;
-  }
-  if (this->_dataIn.find(std::string("RG-15")) == std::string::npos) {
-    if (this->_dataIn.find(std::string("Reset")) == std::string::npos) {
-      return false;
-    } else {
+/**
+ * polling settings
+ */
+bool RG15::setPollingMode() {
+  for (int attempt = 0; attempt < attempts; attempt++)
+    if (changeSettings('p')) {
+      pollingMode = true;
       return true;
     }
-  }
-  return true;
+  return false;
 }
-
-bool RG15::begin(bool polling, bool isMetric, bool isHighRes) {
-  this->serial.begin(this->_baud);
-  if (!this->_checkSensorReady()) {
-    if (!this->reboot()) {
-      this->_initErr = 1;
-      return false;
-    }
-  }
-  if (!this->_setUnit(isMetric)) {
-    this->_initErr = 2;
-    return false;
-  }
-  if (polling) {
-    if (!this->_setPolling()) {
-      this->_initErr = 3;
-      return false;
-    } else {
-      this->_polling = true;
-    }
-  }
-  if (isHighRes) {
-    if (!this->_setHighResolution()) {
-      this->_initErr = 4;
-      return false;
-    }
-  } else {
-    if (!this->_setLowResolution()) {
-      this->_initErr = 4;
-      return false;
-    }
-  }
-  this->_initErr = 0;
-  return true;
-}
-
-bool RG15::begin() {
-  this->serial.begin(this->_baud);
-  this->_clearDataIn();
-  if (!this->_checkSensorReady()) {
-    if (!this->reboot()) {
-      this->_initErr = 1;
-      return false;
-    }
-  }
-  if (!this->_setUnit(true)) {
-    this->_initErr = 2;
-    return false;
-  }
-  if (!this->_setPolling()) {
-    this->_initErr = 3;
-    return false;
-  } else {
-    this->_polling = true;
-  }
-  if (!this->_setHighResolution()) {
-    this->_initErr = 4;
-    return false;
-  }
-  return true;
-}
-
-bool RG15::reboot() {
-  this->serial.println("K");
-  if (!this->_readSensorResponse()) {
-    return false;
-  }
-  if (this->_dataIn.find(std::string("RG-15")) == std::string::npos) {
-    if (this->_dataIn.find(std::string("Reset")) == std::string::npos) {
-      return false;
-    } else {
+bool RG15::setContinousMode() {
+  for (int attempt = 0; attempt < attempts; attempt++)
+    if (changeSettings('c')) {
+      pollingMode = false;
       return true;
     }
-  } else {
-    return true;
-  }
+  return false;
 }
 
-// settings
-bool RG15Arduino::setHighResolution() { return _sendCommandLetter('h'); }
-bool RG15Arduino::setLowResolution() { return _sendCommandLetter('l'); }
-bool RG15Arduino::setMetric() { return _sendCommandLetter('m'); }
-bool RG15Arduino::setImperial() { return _sendCommandLetter('i'); }
-bool RG15Arduino::setPolling() { return _sendCommandLetter('p'); }
-bool RG15Arduino::setContinuous() { return _sendCommandLetter('c'); }
+/**
+ * resolution settings
+ */
+bool RG15::setHighResolution() {
+  for (int attempt = 0; attempt < attempts; attempt++)
+    if (changeSettings('h')) return true;  // success
+  return false;                            // fail
+}
+bool RG15::setLowResolution() {
+  for (int attempt = 0; attempt < attempts; attempt++)
+    if (changeSettings('h')) return true;  // success
+  return false;                            // fail
+}
 
-// reset
-void RG15::resetTotalAcc() { return _sendCommandLetter('o'); }
+/**
+ * unit settings
+ */
+bool RG15::setImperialUnit() {
+  for (int attempt = 0; attempt < attempts; attempt++)
+    if (changeSettings('i')) {
+      unit = 'i';
+      return true;  // success
+    }
+  return false;  // fail
+}
+bool RG15::setMetricUnit() {
+  for (int attempt = 0; attempt < attempts; attempt++)
+    if (changeSettings('m')) {
+      unit = 'm';
+      return true;  // success
+    }
+  return false;  // fail
+}
 
-// get measurements
-float RG15::getAcc() { return this->_acc; }
-float RG15::getEventAcc() { return this->_eventAcc; }
-float RG15::getTotalAcc() { return this->_totalAcc; }
-float RG15::getRInt() { return this->_rInt; }
+/**
+ * reset total accumulation counter
+ */
+bool RG15::resetTotalAccumulation() {
+  for (int attempt = 0; attempt < attempts; attempt++)
+    if (cleanSerialStream())
+      if (sendChar('o')) return true;  // success
+  return false;                        // fail
+}
+
+/**
+ * get measurements
+ */
+float RG15::getAccumulation() { return this->acc; }
+float RG15::getEventAccumulation() { return this->eventAcc; }
+float RG15::getTotalAccumulation() { return this->totalAcc; }
+float RG15::getRainfallIntensity() { return this->rInt; }
+
+/**
+ * get latest error code
+ */
+int RG15::getLatestErrorCode() { return this->latestErrorCode; }
