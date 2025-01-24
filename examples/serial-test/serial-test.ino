@@ -5,36 +5,37 @@
 RG15 rg15(Serial1);
 
 void setup() {
+  // USB seriel
   Serial.begin(9600);
   while (!Serial);
 
-  Serial.println("Starting RG15 example");
-  if (rg15.begin()) {
+  // start sensor
+  Serial.println("Starting RG15");
+  if (rg15.begin(9600, 500, 2)) {
     Serial.println("RG15 sensor started");
   } else {
-    Serial.println("RG15 sensor failed to start");
-    Serial.print("Init error: ");
-    Serial.println(rg15.getLatestErrorCode());
-    while (1) {
-      senseBoxIO.statusRed();
-    }
+    Serial.print("error: ");
+    Serial.println(rg15.getErrorCode());
+    Serial.println(rg15.getResponseBuffer());
   }
 }
 
 void loop() {
-  Serial.println(rg15.setPollingMode());
-  Serial.println(rg15.setPollingMode());
-  Serial.println(rg15.setPollingMode());
-  // rg15.pool();
+  if(!rg15.poll()) {
+    Serial.print("error: ");
+    Serial.println(rg15.getErrorCode());
+  }
+  char* text = rg15.getResponseBuffer();
+  size_t len = 100;
+  Serial.println(rg15.getResponseBuffer());
+  Serial.print("accumulation: ");
+  Serial.println(rg15.getAccumulation());
+  Serial.print("event accumulation: ");
+  Serial.println(rg15.getEventAccumulation());
+  Serial.print("total accumulation: ");
+  Serial.println(rg15.getTotalAccumulation());
+  Serial.print("rainfall intensity: ");
+  Serial.println(rg15.getRainfallIntensity());
 
-  // Serial.println("Polling RG15 sensor");
-  // rg15.doPoll(&acc, &evAcc, &totAcc, &rInt);
-  // Serial.print("Accumulated rainfall: ");
-  // Serial.println(acc);
-  // Serial.print("Event accumulated rainfall: ");
-  // Serial.println(evAcc);
-  // Serial.print("Total accumulated rainfall: ");
-  // Serial.println(totAcc);
-  // Serial.print("Rain intensity: ");
-  // Serial.println(rInt);
+  delay(1000);
 }
