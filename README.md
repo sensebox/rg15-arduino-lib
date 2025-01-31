@@ -1,60 +1,132 @@
-# rg15-arduino-lib
-Library for Hydreon RG15 and arduino, made to fix problems with old hydreon lib and original lib.
+## Overview
+
+The **RG15 Arduino Library (rg15-arduino-lib)** provides robust communication with the [**RG15 Rain Gauge Sensor**](https://rainsensors.com/products/rg-15/) over a serial interface.
+
+It was designed for use with the [senseBox microcontroller](https://sensebox.de/) and fixes problems with the [standard library](https://rainsensors.com/docs/rg-guides/rg-arduino/hydreon-arduino-library/) provided by hydreon and our [old version](https://github.com/sensebox/hydreon-rainsensor-library). This library is designed for accurate and reliable retrieval of rainfall data, supporting polling mode and essential sensor functionalities.
+
+## Features
+
+- Retrieves real-time rainfall data, including:
+  - Accumulated rainfall since the last poll.
+  - Accumulated rainfall for the current event.
+  - Total accumulated rainfall since last reset.
+  - Rainfall intensity.
+- Supports metric (mm) and imperial (inches) units.
+- Allows change of valid baud rates (1200 to 57600).
+- Allows sensor reinitialization and polling mode.
+- Provides error handling and debugging capabilities.
+- Compatible with **Arduino-based microcontrollers**, including the [**senseBox**](https://sensebox.de/).
+
+## Installation
+
+1. Download or clone the repository.
+2. Copy the **RG15** folder into your Arduino **libraries** directory:
+   ```
+   Documents/Arduino/libraries/
+   ```
+3. Restart the Arduino IDE and include the library:
+   ```cpp
+   #include <RG15.h>
+   ```
+
+## Dependencies
+
+This library requires the **Arduino core** and a hardware serial interface.
+
+## Wiring Guide
+
+| RG15 Pin on J2                  | Arduino Pin (Example) |
+| ------------------------------- | --------------------- |
+| VCC (Pin 2 for 5V+, 8 for 3.3V) | 5V                    |
+| GND (Pin 1)                     | GND                   |
+| OUT (Pin 3)                     | RX (e.g., Serial1 RX) |
+| IN (Pin 5)                      | TX (e.g., Serial1 TX) |
 
 ## Usage
 
-### Declare the object
-To use the Library, a RG15 object needs to be created first, like this: 
-```c++
-RG15 rg15(Serial1)
+### Initialize the Sensor
+
+```cpp
+#include <RG15.h>
+
+// Define serial port
+// TODO
+
+// Create RG15 object
+RG15 rg51(Serial1);
+
+void setup() {
+    Serial.begin(9600); // Debug output
+    rg15.begin(); // Start sensor
+
+    // Initialize RG15 sensor with default settings
+    if (rg15.begin()) {
+        Serial.println("RG15 initialized successfully!");
+    } else {
+        rg15.println("Failed to initialize RG15!");
+    }
+}
+
+void loop() {
+    // Poll for rainfall data
+    if (rg15.poll()) {
+        Serial.print("Accumulated Rain: ");
+        Serial.println(rg15.getAccumulation());
+    } else {
+        Serial.println("Failed to read RG15 data.");
+    }
+    delay(5000);
+}
 ```
-The argument given here is the Serial Port the RG15 Sensor is connected to. The baudrate can also be specified, otherwise 9600 is assumed:
-```c++
-RG15 rg15(Serial1, 9600)
-```
 
-### Setup
+### Available Methods
 
-In the setup() function, the sensor needs to be initialized using the begin() Method. There are two ways to do this:
+| Method                                                     | Description                                                                      |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `bool begin(int baudRate, bool highResolution, char unit)` | Initializes the sensor with custom settings.                                     |
+| `bool begin()`                                             | Initializes with default settings: **9600 baud, high resolution, metric units**. |
+| `bool poll()`                                              | Retrieves the latest rain data from the sensor.                                  |
+| `float getAccumulation()`                                  | Returns accumulated rainfall since last poll.                                    |
+| `float getEventAccumulation()`                             | Returns accumulated rainfall in the current event.                               |
+| `float getTotalAccumulation()`                             | Returns total accumulated rainfall since last reset.                             |
+| `float getRainfallIntensity()`                             | Returns current rainfall intensity.                                              |
+| `bool restart()`                                           | Restarts the RG15 sensor.                                                        |
+| `bool setPollingMode()`                                    | Sets the sensor to polling mode.                                                 |
+| `bool changeBaudRate(unsigned int baudRate)`               | Changes the communication baud rate.                                             |
+| `bool setUnit(char unit)`                                  | Sets measurement units: `'m'` for metric, `'i'` for imperial.                    |
+| `char getUnit()`                                           | Gets the current measurement unit.                                               |
+| `int getErrorCode()`                                       | Returns the latest error code for debugging.                                     |
+| `char* getResponseBuffer()`                                | Returns the last received response from the sensor.                              |
 
-```c++
-rg15.begin() //this initializes the sensor using metric units, polling mode and high resolution. For ease of use, this is recommended.
-```
-or 
-```c++
-rg15.begin(true, true, true) //here, the arguments control the following: polling mode, metric/imperial units, high resolution. False always means a deviation from the default values, so (false, false, false) would initialize the sensor with imperial units in continuous mode and with low resolution. 
-```
+### Error Codes
 
-### Reading and handling sensor data
-To better control the flow of data, the library offers the `doPoll()` method. This method requests new data from the sensor and stores it in two places. Every call of the `doPoll()` method updates the values stored in the `rg15`-Object. Alternatively, the data can also be extracted into variables in the sketch to be manipulated by it. This is accomplished like follows:
-```c++
-float acc, evAcc, totAcc, rInt; //create some variables to store data in
-rg15.doPoll(&acc, &evAcc, &totAcc, &rInt); //pass the addresses of these variables as arguments into the doPoll() function. 
-```
-If `doPoll()` is called without arguments, the values can be obtained by calling one of the four getter methods:
-```c++
-float acc = rg15.getAcc();
-float evAcc = rg15.getEventAcc();
-float totAcc = rg15.getTotalAcc();
-float rInt = rg15.getRInt();
-```
-**Warning:** These methods do not update the data inside the object and only retrieve stored data. To get the most recent data, `doPoll()` should be called first.
+| Code | Meaning                           |
+| ---- | --------------------------------- |
+| 0    | No error                          |
+| 1    | Serial connection not established |
+| 2    | Serial connection failed to write |
+| 3    | Invalid response received         |
+| 4    | Response timeout                  |
+| 5    | Unsupported baud rate             |
+| 6    | Data parsing failed               |
+| 7    | Unit mismatch                     |
 
-### Sensor Control
-To ease the use, this library allows only minimal control over the sensors parameters outside of initialisation. Nonetheless, the following Methods are available to change the sensors behaviour and get information about errors that have occurred during initialisation:
+## Notes & Limitations
 
-#### `reboot()`
-This method forces the sensor to reboot itself, checking if the reboot was successful and blocking the program while the sensor is rebooting itself. This is also called internally upon initialisation.
+- **Continuous mode is not supported** (only polling mode is implemented).
+- Sensor settings like **high/low resolution** and **unit selection** must be configured after initialization.
+- Communication is handled using **HardwareSerial** (software serial is not recommended).
 
-#### `resetTotalAcc()`
-This method resets two values: 
-1. The TotalAcc variable stored inside the Sensor Object (accessed via `getTotalAcc()`)
-2. The sensors internal totalAcc-counter, stored inside the controller itself.
-It checks whether the sensor has correctly purged its data by checking if the totalAcc returned from the sensor is actually 0, calling `doPoll` internally.
+## References
 
-#### `getInitErr()`
-This function returns an integer depending on what went wrong during initialization of the sensor. There are four different possible errors:
-- `return = 1` The sensor failed to send it's boot header upon initialization and a second reboot attempt has failed (usually a wiring problem)
-- `return = 2` The sensor failed to respond to the unit change command or responded incorrectly (i.e. confirmed metric units upon asking for imperial units)
-- `return = 3` The sensor failed to respond to the polling  command or responded incorrectly (i.e. confirmed continuous operation upon asking for polling mode)
-- `return = 4` The sensor failed to respond to the resolution change command or responded incorrectly (i.e. confirmed high resolution upon asking for low resolution)
+- **RG15 Sensor Documentation:** [RG15 Manual](https://rainsensors.com/wp-content/uploads/sites/3/2020/07/rg-15_instructions_sw_1.000.pdf#page=2)
+
+## License
+
+This library is open-source and licensed under the **MIT License**.
+
+## Authors
+
+- **Paul Reichmuth** (@PaulReichmuth)
+- **Björn Luig** (@BjoernLuig)
+- **Inspiration from:** Jan-Patrick Bollow (@JBollow)
