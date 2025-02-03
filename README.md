@@ -57,7 +57,6 @@ RG15 rg51(Serial1);
 
 void setup() {
     Serial.begin(9600); // Debug output
-    rg15.begin(); // Start sensor
 
     // Initialize RG15 sensor with default settings
     if (rg15.begin()) {
