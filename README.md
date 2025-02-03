@@ -1,6 +1,6 @@
 ## Overview
 
-The **RG15 Arduino Library (rg15-arduino-lib)** provides robust communication with the [**RG15 Rain Gauge Sensor**](https://rainsensors.com/products/rg-15/) over a serial interface.
+The **RG15 Arduino Library (RG15-Arduino)** provides robust communication with the [**RG15 Rain Gauge Sensor**](https://rainsensors.com/products/rg-15/) over a serial interface.
 
 It was designed for use with the [senseBox microcontroller](https://sensebox.de/) and fixes problems with the [standard library](https://rainsensors.com/docs/rg-guides/rg-arduino/hydreon-arduino-library/) provided by hydreon and our [old version](https://github.com/sensebox/hydreon-rainsensor-library). This library is designed for accurate and reliable retrieval of rainfall data, supporting polling mode and essential sensor functionalities.
 
@@ -49,7 +49,7 @@ This library requires the **Arduino core** and a hardware serial interface.
 ```cpp
 #include <RG15.h>
 
-// Define serial port
+// Define serial port for sensor
 // TODO
 
 // Create RG15 object
@@ -63,7 +63,7 @@ void setup() {
     if (rg15.begin()) {
         Serial.println("RG15 initialized successfully!");
     } else {
-        rg15.println("Failed to initialize RG15!");
+        Serial.println("Failed to initialize RG15!");
     }
 }
 
