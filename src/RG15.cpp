@@ -7,7 +7,7 @@
  * sensor, written in C++.
  * @author Paul Reichmuth (@PaulReichmuth) and Björn Luig (@BjoernLuig) with
  * inspiration from Jan-Patrick Bollow(@JBollow)
- * @version 1.0
+ * @version 1.0.1
  * @date 2024-05-22
  * @note See official documentation of the RG15:
  * https://rainsensors.com/wp-content/uploads/sites/3/2020/07/rg-15_instructions_sw_1.000.pdf#page=2
@@ -188,6 +188,11 @@ bool RG15::poll() {
         continue;        // failed attempt
       }
     } else {
+      // negativ values as error indicator
+      _acc = -1;
+      _eventAcc = -1;
+      _totalAcc = -1;
+      _rInt = -1;
       _errorCode = 6;  // parsing did not work
       continue;        // failed attempt
     }
