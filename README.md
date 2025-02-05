@@ -4,10 +4,6 @@ The **RG15 Arduino Library (RG15-Arduino)** provides robust communication with t
 
 It was designed for use with the [senseBox microcontroller](https://sensebox.de/) and fixes problems with the [standard library](https://rainsensors.com/docs/rg-guides/rg-arduino/hydreon-arduino-library/) provided by hydreon and our [old version](https://github.com/sensebox/hydreon-rainsensor-library). This library is designed for accurate and reliable retrieval of rainfall data, supporting polling mode and essential sensor functionalities.
 
-![image](https://rainsensors.com/wp-content/uploads/sites/3/2020/07/rg_sm.webp)
-
-Image taken from [the producers website](https://rainsensors.com/products/rg-15/).
-
 ## Features
 
 - Retrieves real-time rainfall data, including:
