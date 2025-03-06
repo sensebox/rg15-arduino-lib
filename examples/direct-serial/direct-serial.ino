@@ -1,5 +1,3 @@
-#include <senseBoxIO.h>
-
 /**
  * @brief Script to test direct serial communication between the rain gauge
  * sensor RG15 and the senseBox.
@@ -8,28 +6,38 @@
  * https://rainsensors.com/wp-content/uploads/sites/3/2020/07/rg-15_instructions_sw_1.000.pdf#page=2
  */
 
-String data;  // raw data
-long sendTime, recieveTime;
+// if senseBox MCU uncomment below
+// #include <senseBoxIO.h>
+// #define SerialSensor Serial1 // UART1
+
+// if senseBox MCU-S2 (ESP32) uncomment below
+// #define SerialSensor Serial0 // UART = UART0
+
+String data;                 // raw data
+long sendTime, recieveTime;  // time tracking
 
 void setup() {
   Serial.begin(9600);
   while (!Serial);
-  Serial1.begin(9600);
-  while (!Serial1);
+  SerialSensor.begin(9600);
+  while (!SerialSensor);
 }
 
 void loop() {
+  // send message
   while (Serial.available()) {
     sendTime = millis();
     data = Serial.readString();
-    Serial1.println(data);
+    SerialSensor.println(data);
     Serial.print(sendTime);
     Serial.print(" send: ");
     Serial.print(data);
   }
-  while (Serial1.available()) {
+
+  // recieve message
+  while (SerialSensor.available()) {
     recieveTime = millis();
-    data = Serial1.readString();
+    data = SerialSensor.readString();
     Serial.print(recieveTime);
     Serial.print(" recieved: ");
     Serial.print(data);

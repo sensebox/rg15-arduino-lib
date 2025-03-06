@@ -1,7 +1,3 @@
-#include <RG15.h>
-
-#include "senseBoxIO.h"
-
 /**
  * @brief Script to test all features of this Arduino library with the senseBox.
  * @author Björn Luig (@BjoernLuig)
@@ -9,8 +5,17 @@
  * https://rainsensors.com/wp-content/uploads/sites/3/2020/07/rg-15_instructions_sw_1.000.pdf#page=2
  */
 
-int interval = 500;                // delay between tests
-RG15 rg15(Serial1, 200, 1000, 5);  // default values
+#include <RG15.h>
+
+// if senseBox MCU uncomment below
+// #include <senseBoxIO.h>
+// #define SerialSensor Serial1 // UART1
+
+// if senseBox MCU-S2 (ESP32) uncomment below
+// #define SerialSensor Serial0  // UART = UART0
+
+int interval = 1000;  // delay between tests
+RG15 rg15(SerialSensor);   // create RG15 object
 
 void setup() {
   // USB seriel
@@ -19,7 +24,7 @@ void setup() {
 
   // start sensor
   Serial.println("STARTING RG15");
-  Serial.print(rg15.begin(9600, true, 'm') ? "success" : "fail");
+  Serial.print(rg15.begin() ? "success" : "fail");
   Serial.print(", errorCode = ");
   Serial.print(rg15.getErrorCode());
   Serial.print(", attempts = ");
@@ -28,8 +33,8 @@ void setup() {
 }
 
 void loop() {
-  // poll 10 times
-  for (int i = 0; i < 10; i++) {
+  // poll 5 times
+  for (int i = 0; i < 5; i++) {
     Serial.print("POLL ");
     Serial.println(i);
     Serial.print(rg15.poll() ? "success" : "fail");
@@ -49,6 +54,7 @@ void loop() {
     Serial.print(" rainfallIntensity = ");
     Serial.println(rg15.getRainfallIntensity());
     Serial.println();
+    if (!_collectResponse()) continue;  // failed attempt
     delay(interval);
   }
 
@@ -134,44 +140,44 @@ void loop() {
   Serial.println();
   delay(interval);
 
-  // change baud rate 1200
-  Serial.println("CHANGE BAUD RATE TO 1200");
-  Serial.print(rg15.changeBaudRate(1200) ? "success" : "fail");
-  Serial.print(", errorCode = ");
-  Serial.print(rg15.getErrorCode());
-  Serial.print(", attempts = ");
-  Serial.println(rg15.getAttempts());
-  Serial.print("response = \"");
-  Serial.print(rg15.getResponseBuffer());
-  Serial.println("\"");
-  Serial.println();
-  delay(interval);
+  // // change baud rate to 1200 NOT RECOMMENDED
+  // Serial.println("CHANGE BAUD RATE TO 1200");
+  // Serial.print(rg15.changeBaudRate(1200) ? "success" : "fail");
+  // Serial.print(", errorCode = ");
+  // Serial.print(rg15.getErrorCode());
+  // Serial.print(", attempts = ");
+  // Serial.println(rg15.getAttempts());
+  // Serial.print("response = \"");
+  // Serial.print(rg15.getResponseBuffer());
+  // Serial.println("\"");
+  // Serial.println();
+  // delay(interval);
 
-  // change baud rate 57600
-  Serial.println("CHANGE BAUD RATE TO 57600");
-  Serial.print(rg15.changeBaudRate(57600) ? "success" : "fail");
-  Serial.print(", errorCode = ");
-  Serial.print(rg15.getErrorCode());
-  Serial.print(", attempts = ");
-  Serial.println(rg15.getAttempts());
-  Serial.print("response = \"");
-  Serial.print(rg15.getResponseBuffer());
-  Serial.println("\"");
-  Serial.println();
-  delay(interval);
+  // // change baud rate to 57600 ONLY TEST IF BOARD SUPPORTS THIS
+  // Serial.println("CHANGE BAUD RATE TO 57600");
+  // Serial.print(rg15.changeBaudRate(57600) ? "success" : "fail");
+  // Serial.print(", errorCode = ");
+  // Serial.print(rg15.getErrorCode());
+  // Serial.print(", attempts = ");
+  // Serial.println(rg15.getAttempts());
+  // Serial.print("response = \"");
+  // Serial.print(rg15.getResponseBuffer());
+  // Serial.println("\"");
+  // Serial.println();
+  // delay(interval);
 
-  // change baud rate 9600
-  Serial.println("CHANGE BAUD RATE BACK TO DEFAULT OF 9600");
-  Serial.print(rg15.changeBaudRate(9600) ? "success" : "fail");
-  Serial.print(", errorCode = ");
-  Serial.print(rg15.getErrorCode());
-  Serial.print(", attempts = ");
-  Serial.println(rg15.getAttempts());
-  Serial.print("response = \"");
-  Serial.print(rg15.getResponseBuffer());
-  Serial.println("\"");
-  Serial.println();
-  delay(interval);
+  // // change baud rate back to 9600
+  // Serial.println("CHANGE BAUD RATE BACK TO DEFAULT OF 9600");
+  // Serial.print(rg15.changeBaudRate(9600) ? "success" : "fail");
+  // Serial.print(", errorCode = ");
+  // Serial.print(rg15.getErrorCode());
+  // Serial.print(", attempts = ");
+  // Serial.println(rg15.getAttempts());
+  // Serial.print("response = \"");
+  // Serial.print(rg15.getResponseBuffer());
+  // Serial.println("\"");
+  // Serial.println();
+  // delay(interval);
 
   // restart sensor
   Serial.println("RESTART SENSOR");

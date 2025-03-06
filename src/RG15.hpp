@@ -1,5 +1,3 @@
-#include <string>
-
 #include "Arduino.h"
 
 /**
@@ -20,17 +18,17 @@ class RG15 {
       1200,  2400,  4800, 9600,
       19200, 38400, 57600};  // Valid baud rates indexed by baud codes (0-6)
   char _responseBuffer[90] = {0};  // Buffer to store the last sensor response
-  unsigned long _cleanTime;        // Time for cleaning the serial stream
-  unsigned long _responseTime;     // Timeout for sensor responses
-  unsigned int _attempts;          // Number of attempted sensor communications
+  unsigned long _cleanTimeout;     // Timeout for cleaning the serial stream
+  unsigned long _responseTimeout;  // Timeout for sensor responses
+  unsigned int _attempts = 0;      // Number of attempted sensor communications
   unsigned int _maxAttempts;       // Maximum allowed attempts for communication
-  char _unit;       // Unit: 'm' for metric (mm) and 'i' for imperial (inches)
-                    // if unknown
-  float _acc;       // Accumulated rainfall since the last poll
-  float _eventAcc;  // Accumulated rainfall in the current event
-  float _totalAcc;  // Total accumulated rainfall since the last reset
-  float _rInt;      // Rainfall intensity
-  int _errorCode;   // Code of the latest error for debugging
+  char _unit = 'm';  // Unit: 'm' for metric (mm) and 'i' for imperial (inches)
+                     // if unknown
+  float _acc = -1;   // Accumulated rainfall since the last poll
+  float _eventAcc = -1;  // Accumulated rainfall in the current event
+  float _totalAcc = -1;  // Total accumulated rainfall since the last reset
+  float _rInt = -1;      // Rainfall intensity
+  int _errorCode = 0;    // Code of the latest error for debugging
 
   bool _changeSettings(char setting);
   bool _checkSerial();
@@ -47,20 +45,21 @@ class RG15 {
    * @brief Construct a new RG15 sensor instance.
    *
    * @param serial Reference to the serial port to use (e.g., Serial1 or Serial2
-   * on the senseBox).
-   * @param cleanTime Time for cleaning the serial communication stream in ms
-   * (should be at least 200 ms).
-   * @param responseTime Timeout for response in sensor communication in ms
+   * on the senseBox MCU and Serial0 on the senseBoc MCU-S2).
+   * @param cleanTimeout Timeout for cleaning the serial communication stream in
+   * ms (should be at least 500 ms).
+   * @param responseTimeout Timeout for response in sensor communication in ms
    * (should be at least 1000 ms).
    * @param maxAttempts Maximum number of attempts for sensor communication.
    */
-  RG15(HardwareSerial& serial, unsigned long cleanTime,
-       unsigned long responseTime, unsigned int maxAttempts);
+  RG15(HardwareSerial& serial, unsigned int cleanTimeout,
+       unsigned int responseTimeout, unsigned int maxAttempts);
 
  public:
   /**
    * @brief Construct a new RG15 sensor instance with default communication
-   * settings (cleanTime = 200 ms, responseTime = 1000 ms, maxAttempts = 5).
+   * settings (cleanTimeout = 500 ms, responseTimeout = 1000 ms, maxAttempts =
+   * 5).
    *
    * @param serial Reference to the serial port to use (e.g., Serial1 or Serial2
    * on the senseBox).
@@ -102,7 +101,7 @@ class RG15 {
 
   /**
    * @brief Change the sensor's baud rate and reestablish communication. It is
-   * advised to keep the baud rate at 9600.
+   * advised to not use this and keep the baud rate at 9600.
    *
    * @param baudRate The baud rate to change to. Only 1200, 2400, 4800, 9600,
    * 19200, 38400, and 57600 are valid.
@@ -167,9 +166,9 @@ class RG15 {
   float getAccumulation();
 
   /**
-   * @brief Get the accumulated rainfall in the current event.
+   * @brief Get the accumulated rainfall for the current event.
    *
-   * @return float The accumulated rainfall in the current event.
+   * @return float The accumulated rainfall for the current event.
    */
   float getEventAccumulation();
 
