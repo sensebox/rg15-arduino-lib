@@ -14,8 +14,8 @@
 // if senseBox MCU-S2 (ESP32) uncomment below
 // #define SerialSensor Serial0  // UART = UART0
 
-int interval = 1000;  // delay between tests
-RG15 rg15(SerialSensor);   // create RG15 object
+int interval = 1000;      // delay between tests
+RG15 rg15(SerialSensor);  // create RG15 object
 
 void setup() {
   // USB seriel
@@ -54,7 +54,6 @@ void loop() {
     Serial.print(" rainfallIntensity = ");
     Serial.println(rg15.getRainfallIntensity());
     Serial.println();
-    if (!_collectResponse()) continue;  // failed attempt
     delay(interval);
   }
 

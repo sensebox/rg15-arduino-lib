@@ -14,11 +14,11 @@
 // if senseBox MCU-S2 (ESP32) uncomment below
 // #define SerialSensor Serial0 // UART = UART0
 
-RG15 rg15(SerialSerial); // create RG15 object
+RG15 rg15(SerialSensor);  // create RG15 object
 
 void setup() {
   // USB seriel
-  Serial.begin(9600);  
+  Serial.begin(9600);
   while (!Serial);
 
   // start sensor
